@@ -1,3 +1,5 @@
+import os
+import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 from collections import defaultdict, deque
@@ -147,8 +149,27 @@ class QLearningAgent:
     def update(self, s_idx, action, reward, s_next_idx):
         target = reward + self.gamma * np.max(self.Q[s_next_idx])
         self.Q[s_idx, action] += self.alpha * (target - self.Q[s_idx, action])
-
-
+    
+    def save_agent(self, filename="mon_agent.pkl"):
+        """Sauvegarde l'agent dans le dossier RL_2"""
+        folder = "RL_2"
+        
+        # Sécurité : on s'assure que le dossier est accessible, sinon on le crée
+        os.makedirs(folder, exist_ok=True)
+        
+        # Création du chemin complet : RL_2/mon_agent.pkl
+        full_path = os.path.join(folder, filename)
+        
+        data = {
+            "Q": self.Q,
+            "alpha": self.alpha,
+            "gamma": self.gamma,
+            "epsilon": self.epsilon
+        }
+        
+        with open(full_path, "wb") as f:
+            pickle.dump(data, f)
+        print(f"✅ Sauvegarde réussie : {full_path}")
 # ============================================================
 # 4) Interaction: un match (plusieurs manches) vs un adversaire
 # ============================================================
@@ -292,31 +313,10 @@ if __name__ == "__main__":
         rounds_per_match=50
     )
 
+    agent.save_agent("agent_final.pkl")
 
     plot_results(
         gains_by_opp,
         avg_all,
-        title="Gains par d'épisodes (50 manches/adversaire pour chaque épisode)"
+        title="Gains par séquence d'épisodes (50 manches/adversaire)"
     )
-
-# ============================================================
-# 8) Sauvegarde de l'apprentissage
-# ============================================================
-
-np.savez(
-    "trained_agent_qtable.npz",
-    Q=agent.Q,
-    alpha=agent.alpha,
-    gamma=agent.gamma,
-    epsilon=agent.epsilon
-)
-
-print("Q-table sauvegardée dans trained_agent_qtable.npz")
-
-
-
-
-
-
-
-
