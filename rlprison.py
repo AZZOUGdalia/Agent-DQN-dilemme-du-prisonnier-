@@ -299,5 +299,24 @@ if __name__ == "__main__":
         title="Gains par séquence d'épisodes (50 manches/adversaire)"
     )
 
+# ============================================================
+# 8) Sauvegarde de l'apprentissage
+# ============================================================
+
+np.savez(
+    "trained_agent_qtable.npz",
+    Q=agent.Q,
+    alpha=agent.alpha,
+    gamma=agent.gamma,
+    epsilon=agent.epsilon
+)
+
+print("Q-table sauvegardée dans trained_agent_qtable.npz")
+
+
+
+
+
+
 
 
