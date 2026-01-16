@@ -1,3 +1,4 @@
+import os
 import pickle
 import numpy as np
 import matplotlib.pyplot as plt
@@ -148,37 +149,27 @@ class QLearningAgent:
     def update(self, s_idx, action, reward, s_next_idx):
         target = reward + self.gamma * np.max(self.Q[s_next_idx])
         self.Q[s_idx, action] += self.alpha * (target - self.Q[s_idx, action])
-
-# --- NOUVELLES MÉTHODES ---
-    def save_model(self, filename="qlearning_agent.pkl"):
-        """
-        Sauvegarde la Q-Table et les hyperparamètres dans un fichier.
-        """
+    
+    def save_agent(self, filename="mon_agent.pkl"):
+        """Sauvegarde l'agent dans le dossier RL_2"""
+        folder = "RL_2"
+        
+        # Sécurité : on s'assure que le dossier est accessible, sinon on le crée
+        os.makedirs(folder, exist_ok=True)
+        
+        # Création du chemin complet : RL_2/mon_agent.pkl
+        full_path = os.path.join(folder, filename)
+        
         data = {
             "Q": self.Q,
             "alpha": self.alpha,
             "gamma": self.gamma,
             "epsilon": self.epsilon
         }
-        with open(filename, "wb") as f:
+        
+        with open(full_path, "wb") as f:
             pickle.dump(data, f)
-        print(f"✅ Agent sauvegardé dans '{filename}'")
-
-    def load_model(self, filename="qlearning_agent.pkl"):
-        """
-        Charge la Q-Table et les hyperparamètres depuis un fichier.
-        """
-        try:
-            with open(filename, "rb") as f:
-                data = pickle.load(f)
-            
-            self.Q = data["Q"]
-            self.alpha = data["alpha"]
-            self.gamma = data["gamma"]
-            self.epsilon = data["epsilon"]
-            print(f"✅ Agent chargé depuis '{filename}'")
-        except FileNotFoundError:
-            print(f"❌ Erreur : Le fichier '{filename}' n'existe pas.")
+        print(f"✅ Sauvegarde réussie : {full_path}")
 # ============================================================
 # 4) Interaction: un match (plusieurs manches) vs un adversaire
 # ============================================================
@@ -322,12 +313,10 @@ if __name__ == "__main__":
         rounds_per_match=50
     )
 
+    agent.save_agent("agent_final.pkl")
 
     plot_results(
         gains_by_opp,
         avg_all,
         title="Gains par séquence d'épisodes (50 manches/adversaire)"
     )
-
-
-
