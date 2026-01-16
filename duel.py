@@ -192,7 +192,7 @@ if __name__ == "__main__":
     plt.figure(figsize=(11, 6))
     plt.plot(x, gains_A, label="Agent A (apprend)")
     plt.plot(x, gains_B, label="Agent B (gelé)")
-    plt.plot(x, avg_gain, linewidth=3, label="Moyenne")
+    
 
     plt.xlabel("Épisodes")
     plt.ylabel(f"Gain total (sur {rounds} manches)")
