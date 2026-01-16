@@ -296,7 +296,7 @@ if __name__ == "__main__":
     plot_results(
         gains_by_opp,
         avg_all,
-        title="Gains par séquence d'épisodes (50 manches/adversaire)"
+        title="Gains par d'épisodes (50 manches/adversaire pour chaque épisode)"
     )
 
 
