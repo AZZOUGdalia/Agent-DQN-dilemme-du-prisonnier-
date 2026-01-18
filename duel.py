@@ -18,7 +18,7 @@ PAYOFF_AGENT = {
 }
 
 # ============================================================
-# 2) Etats (même logique que ton code)
+# 2) Etats
 # ============================================================
 
 START = 2  # "pas d'action précédente"
@@ -47,14 +47,12 @@ def make_state_index(opp_id, a_last, o_last):
     pair_idx = last_pair_to_index(a_last, o_last)  # 0..4
     return opp_id * 5 + pair_idx
 
-# On réserve un 5e "opp_id" pour le duel
 NUM_OPP = 5
 NUM_STATES = NUM_OPP * 5  # 25
 NUM_ACTIONS = 2
 
-
 # ============================================================
-# 3) Q-Learning Agent (identique, sauf taille Q = 25 états ici)
+# 3) Q-Learning Agent
 # ============================================================
 
 class QLearningAgent:
@@ -68,11 +66,10 @@ class QLearningAgent:
     def greedy_action(self, s_idx):
         q = self.Q[s_idx]
         best_actions = np.flatnonzero(q == q.max())
-        return int(self.rng.choice(best_actions))
+        return int(self.rng.choice(best_actions))  # tie-break comme ton code
 
     def select_action(self, s_idx):
         a_star = self.greedy_action(s_idx)
-
         if self.rng.random() < self.epsilon:
             other_actions = [a for a in range(NUM_ACTIONS) if a != a_star]
             if other_actions:
@@ -84,21 +81,11 @@ class QLearningAgent:
         target = reward + self.gamma * np.max(self.Q[s_next_idx])
         self.Q[s_idx, action] += self.alpha * (target - self.Q[s_idx, action])
 
-
 # ============================================================
-# 4) Duel A vs B sur le même match (B gelé)
-#    -> pas besoin de classe adversaire, on gère les 2 côté match
+# 4) Duel A vs B (B gelé)
 # ============================================================
 
 def play_match_dual(agent_A, agent_B, opp_id, rounds=50, learn_A=True):
-    """
-    A joue contre B.
-    - A choisit avec epsilon-greedy
-    - B est gelé: joue greedy
-    - A peut apprendre (learn_A=True)
-    Retourne (gain_A, gain_B)
-    """
-
     a_last = START
     b_last = START
 
@@ -106,8 +93,6 @@ def play_match_dual(agent_A, agent_B, opp_id, rounds=50, learn_A=True):
     gain_B = 0.0
 
     for t in range(rounds):
-        # Pour éviter les erreurs, on n'utilise START/valeurs bizarres que dans START/START (t=0).
-        # Ici, make_state_index accepte (START,START) uniquement.
         sA = make_state_index(opp_id, a_last, b_last)
         sB = make_state_index(opp_id, b_last, a_last)
 
@@ -129,14 +114,49 @@ def play_match_dual(agent_A, agent_B, opp_id, rounds=50, learn_A=True):
 
     return gain_A, gain_B
 
+# ============================================================
+# 5) Observation ex post : taux de coopération
+# (IMPORTANT) On reproduit EXACTEMENT la logique d'actions:
+# - A: select_action (donc epsilon-greedy comme pendant duel)
+# - B: greedy_action (gelé)
+# Et learn_A=False (aucune modif Q).
+# ============================================================
+
+def observe_duel_coop(agent_A, agent_B, opp_id, rounds=50, episodes_obs=100):
+    coopA_rates = []
+    coopB_rates = []
+
+    for _ in range(episodes_obs):
+        a_last = START
+        b_last = START
+        coopA = 0
+        coopB = 0
+
+        for t in range(rounds):
+            sA = make_state_index(opp_id, a_last, b_last)
+            sB = make_state_index(opp_id, b_last, a_last)
+
+            a = agent_A.select_action(sA)      # IDENTIQUE au duel
+            b = agent_B.greedy_action(sB)      # IDENTIQUE au duel
+
+            if a == 0:
+                coopA += 1
+            if b == 0:
+                coopB += 1
+
+            a_last, b_last = a, b
+
+        coopA_rates.append(coopA / rounds)
+        coopB_rates.append(coopB / rounds)
+
+    return coopA_rates, coopB_rates
 
 # ============================================================
-# 5) Main: load Q-table + duel + plot
+# 6) Main
 # ============================================================
 
 if __name__ == "__main__":
 
-    # ---- Charger la Q-table apprise dans ton premier script ----
     data = np.load("trained_agent_qtable.npz")
 
     Q_loaded = data["Q"]
@@ -144,8 +164,6 @@ if __name__ == "__main__":
     gamma = float(data["gamma"])
     epsilon = float(data["epsilon"])
 
-    # Ton training initial a NUM_OPP=4 -> Q shape (20,2)
-    # Ici on veut (25,2) pour SELF_OPP_ID=4
     if Q_loaded.shape == (20, 2):
         Q_ext = np.zeros((25, 2), dtype=float)
         Q_ext[:20, :] = Q_loaded
@@ -154,14 +172,12 @@ if __name__ == "__main__":
     if Q_loaded.shape != (25, 2):
         raise ValueError(f"Q-table inattendue: {Q_loaded.shape}. Attendu (20,2) ou (25,2).")
 
-    # ---- Créer deux agents identiques au départ ----
     agent_A = QLearningAgent(alpha=alpha, gamma=gamma, epsilon=epsilon, seed=123)
     agent_B = QLearningAgent(alpha=alpha, gamma=gamma, epsilon=0.0, seed=999)  # gelé
 
     agent_A.Q = Q_loaded.copy()
     agent_B.Q = Q_loaded.copy()
 
-    # ---- Duel ----
     SELF_OPP_ID = 4
     episodes = 200
     rounds = 50
@@ -186,17 +202,37 @@ if __name__ == "__main__":
         if (ep + 1) % 20 == 0:
             print(f"Episode {ep+1}/{episodes} | Gain A={gA:.2f} | Gain B={gB:.2f}")
 
-    # ---- Plot (comme ton 1er script, mais 2 adversaires) ----
+    # --- Plot gains ---
     x = np.arange(1, episodes + 1)
-
     plt.figure(figsize=(11, 6))
     plt.plot(x, gains_A, label="Agent A (apprend)")
     plt.plot(x, gains_B, label="Agent B (gelé)")
-    
-
     plt.xlabel("Épisodes")
     plt.ylabel(f"Gain total (sur {rounds} manches)")
     plt.title("Gains par épisode – Duel Agent A vs Agent B (gelé, même Q au départ)")
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.show()
+
+    # --- Plot taux de coopération (observation ex post) ---
+    # IMPORTANT: on n'altère pas les agents du duel: on observe APRES.
+    # Pour garder la même logique que pendant le duel, on garde epsilon de A tel quel.
+    coopA, coopB = observe_duel_coop(
+        agent_A,
+        agent_B,
+        opp_id=SELF_OPP_ID,
+        rounds=rounds,
+        episodes_obs=100
+    )
+
+    xo = np.arange(1, len(coopA) + 1)
+    plt.figure(figsize=(11, 5))
+    plt.plot(xo, coopA, label="Agent A (apprend)")
+    plt.plot(xo, coopB, label="Agent B (gelé)")
+    plt.xlabel("Épisodes d'observation")
+    plt.ylabel("Taux de coopération")
+    plt.title("Taux de coopération (même politique que le duel) – Agent A vs Agent B")
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.tight_layout()

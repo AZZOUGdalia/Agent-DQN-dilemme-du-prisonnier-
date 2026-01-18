@@ -313,10 +313,3 @@ np.savez(
 
 print("Q-table sauvegardée dans trained_agent_qtable.npz")
 
-
-
-
-
-
-
-
