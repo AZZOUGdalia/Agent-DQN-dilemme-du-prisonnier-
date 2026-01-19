@@ -320,3 +320,122 @@ if __name__ == "__main__":
         avg_all,
         title="Gains par séquence d'épisodes (50 manches/adversaire)"
     )
+# --- OUTIL D'ANALYSE (à lancer après l'entraînement) ---
+def print_strategy_analysis(agent):
+    print("\n=== ANALYSE DE LA STRATÉGIE APPRISE ===")
+    opp_names = ["AlwaysC", "AlwaysD", "TitForTat", "Random"]
+    
+    # Rappel des index : 0:START, 1:(C,C), 2:(C,D), 3:(D,C), 4:(D,D)
+    state_labels = ["DÉBUT", "(Nous:C, Eux:C)", "(Nous:C, Eux:D)", "(Nous:D, Eux:C)", "(Nous:D, Eux:D)"]
+    
+    for i, opp_name in enumerate(opp_names):
+        print(f"\n--- Contre {opp_name} ---")
+        print(f"{'État Précédent':<20} | {'Q(Coop)':<10} | {'Q(Trahir)':<10} | {'Choix Préféré'}")
+        print("-" * 60)
+        
+        for pair_idx in range(5):
+            s_idx = i * 5 + pair_idx
+            q_coop = agent.Q[s_idx, 0]
+            q_defect = agent.Q[s_idx, 1]
+            
+            if q_coop > q_defect:
+                choice = "COOPERER"
+            elif q_defect > q_coop:
+                choice = "TRAHIR " # Espace pour alignement
+            else:
+                choice = "EGALITE"
+                
+            label = state_labels[pair_idx]
+            print(f"{label:<20} | {q_coop:6.2f}     | {q_defect:6.2f}     | {choice}")
+
+# ============================================================
+# 8) Génération du Tableau pour le Rapport
+# ============================================================
+
+def save_strategy_table_image(agent, filename="tableau_strategie.png"):
+    """
+    Génère une image PNG contenant le tableau des stratégies apprises.
+    """
+    opp_names = ["AlwaysC", "AlwaysD", "TitForTat", "Random"]
+    state_labels = ["START", "(C, C)", "(C, D)", "(D, C)", "(D, D)"]
+    
+    # Préparation des données pour le tableau
+    # Colonnes : Adversaire | État | Q(C) | Q(D) | Choix
+    cell_text = []
+    colors = [] # Pour colorier les cases selon le choix
+    
+    for i, opp_name in enumerate(opp_names):
+        for pair_idx in range(5):
+            s_idx = i * 5 + pair_idx
+            q_coop = agent.Q[s_idx, 0]
+            q_defect = agent.Q[s_idx, 1]
+            
+            # Détermination du choix
+            if q_coop > q_defect:
+                choix = "COOP"
+                # Couleur vert clair pour la ligne si coopération
+                row_color = ["#e6fffa"] * 5 
+                # On peut aussi juste colorier la case choix :
+                choice_color = "#90ee90" # Light green
+            elif q_defect > q_coop:
+                choix = "TRAHIR"
+                choice_color = "#ffcccb" # Light red
+            else:
+                choix = "="
+                choice_color = "#ffffff"
+
+            # Formatage des valeurs
+            row = [
+                opp_name if pair_idx == 0 else "", # Affiche le nom seulement sur la 1ere ligne du groupe
+                state_labels[pair_idx],
+                f"{q_coop:.2f}",
+                f"{q_defect:.2f}",
+                choix
+            ]
+            cell_text.append(row)
+            
+            # Gestion des couleurs de fond (alternance ou logique)
+            base_color = "#ffffff"
+            # On met une couleur spécifique pour la colonne Choix
+            c_row = [base_color, base_color, base_color, base_color, choice_color]
+            colors.append(c_row)
+
+    # Création de la figure
+    fig, ax = plt.subplots(figsize=(10, 8)) # Ajustez la hauteur si besoin
+    ax.axis('off')
+    
+    # Création du tableau
+    columns = ["Adversaire", "État Précédent", "Q(Coop)", "Q(Trahir)", "Stratégie"]
+    table = ax.table(
+        cellText=cell_text,
+        colLabels=columns,
+        cellColours=colors,
+        loc='center',
+        cellLoc='center'
+    )
+    
+    # Mise en forme
+    table.auto_set_font_size(False)
+    table.set_fontsize(10)
+    table.scale(1.2, 1.8) # Écarte les lignes pour plus de lisibilité
+    
+    # Mettre en gras les en-têtes
+    for (row, col), cell in table.get_celld().items():
+        if row == 0:
+            cell.set_text_props(weight='bold', color='white')
+            cell.set_facecolor('#40466e') # Bleu foncé pour l'en-tête
+            
+    plt.title("Stratégie Finale Apprise par l'Agent (Q-Values)", fontsize=14, weight='bold')
+    plt.tight_layout()
+    
+    plt.savefig(filename, dpi=300, bbox_inches='tight')
+    print(f"✅ Tableau sauvegardé sous forme d'image : {filename}")
+    plt.close()
+
+    
+    # --- APPEL DE LA FONCTION ---
+if __name__ == "__main__":
+    # ... (le code d'entraînement existant) ...
+    save_strategy_table_image(agent)
+    
+    
